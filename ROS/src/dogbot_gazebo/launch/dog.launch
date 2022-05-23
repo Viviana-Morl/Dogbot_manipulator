@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+
+<!-- dog.launch -->  
+<!-- 2019 React Robotics Ltd -->  
+<!-- Nic Greenway, nic@reactrobotics.com -->  
+
+<!-- single dogbot in gazebo with controllers.  Intended to be called from other launch files -->  
+
+<launch>
+  <arg name="postgres_log" default="false" />
+  <arg name="model" default="$(find dogbot_description)/urdf/dogbot_ee.xacro"/>
+  <arg name="paused" default="false"/>
+  
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
+
+  <!-- push robot_description to factory and spawn robot in gazebo -->
+  <node if="$(arg paused)" name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+        args="-z 0.47 -urdf -model dogbot -param robot_description
+-J back_left_knee_joint -1.40
+-J back_right_knee_joint 1.39
+-J front_left_knee_joint -1.39
+-J front_right_knee_joint 1.38
+-J back_left_pitch_joint -0.75
+-J back_right_pitch_joint 0.78
+-J front_left_pitch_joint -0.8
+-J front_right_pitch_joint 0.75
+-J shoulder_adduction_joint 0.88
+-J shoulder_flexion_joint -0.65
+-J humerus_rotation_joint 0.07
+-J elbow_flexion_joint 0.59
+-J wrist_rotation_joint -1.27
+-J wrist_flexion_joint -0.45
+" respawn="false" output="screen" />
+
+  <node unless="$(arg paused)" name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+        args="-z 0.65 -unpause -urdf -model dogbot -param robot_description" respawn="false" output="screen" />
+  
+  <!-- ros/Gazebo controllers -->
+  <include file="$(find dogbot_control)/launch/controllers.launch" />  
+
+<!--   
+  <include if="$(arg postgres_log)"  file="$(find dogbot_utilities)/launch/logger.launch">
+    <arg name="logging_config" value="sim_logging.yaml"/>
+  </include>
+  -->
+  
+</launch>

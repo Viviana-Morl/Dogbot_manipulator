@@ -1,0 +1,1024 @@
+<?xml version="1.0"?>
+<robot name="dogbot" xmlns:xacro="http://ros.org/wiki/xacro">
+<!-- ===================================================================================
+     |    DogBot v4 URDF                                                               |
+     |    2019 React Robotics Ltd
+     |
+     |    Licence: CC-BY, https://creativecommons.org/licenses/by/4.0/legalcode
+     |    Author:  Nic Greenway, nic@reactrobotics.com
+     |
+     |    Note: some details of mass and inertia in this file are estimates, 
+     |    as DogBot design is still undergoing refinements, and values will vary
+     |    with individual DogBot specification (e.g. battery configuration, on-board
+     |    processor, etc.)
+     =================================================================================== -->
+  
+  <xacro:property name="collisionmesh" value="false" />
+  
+  <xacro:property name="bodyheight" value="0.105" />
+  <xacro:property name="bodywidth" value="0.282" />
+  <xacro:property name="bodylen" value="0.865" />
+  
+  <xacro:property name="hipoffsetside" value="0.088" /><!-- offset from body centreline to hip roll -->
+  <xacro:property name="hipoffset" value="0.2875" /><!-- offset from body midpoint front/back to hip, axis-to-axis is 575mm -->
+  <xacro:property name="legoffsetside" value="0.18675" /><!-- from centreline to centre/origin of upper leg -->  
+  <xacro:property name="upperleglen" value="0.315" />
+  <xacro:property name="lowerleglen" value="0.3" />
+  
+  <xacro:property name="kp" value="1000000" />
+  <xacro:property name="kd" value="1.0" />
+  <!-- degrees to radians -->
+  <xacro:property name="d2rad" value="0.017453" />
+
+  <!-- Shoulder adduction link properties -->
+  <xacro:property name="shoulder_adduction_radius" value="0.04" /> <!--ixx="0.00286" iyy="0.00286" izz="0.00044" --> 
+  <xacro:property name="shoulder_adduction_len" value="0.120" />
+  <!-- Shoulder flexion link properties -->
+  <xacro:property name="shoulder_flexion_radius" value="0.04" /> <!-- ixx="0.00160765 iyy="0.0016075 izz="0.00044"--> 
+  <!-- <xacro:property name="shoulder_flexion_len" value="0.087" /> -->
+  <!-- Humerus Rotation link properties -->
+  <xacro:property name="humerus_rotation_radius" value="0.04" /> <!-- ixx="0.005834583 iyy="0.005834583 izz="0.00044"-->
+  <xacro:property name="humerus_rotation_len" value="0.175" />
+  <!-- Elbow Flexion link properties -->
+  <xacro:property name="elbow_flexion_radius" value="0.04" /> <!-- ixx="0.00160765 iyy="0.0016075 izz="0.00044"-->
+  <!-- <xacro:property name="elbow_flexion_len" value="0.087" /> -->
+  <!-- Wrist Rotation link properties -->
+  <xacro:property name="wrist_rotation_radius" value="0.04" /> <!-- ixx="0.005834583 iyy="0.005834583 izz="0.00044"--> 
+  <xacro:property name="wrist_rotation_len" value="0.175" />
+  <!-- Wrist Flexion link properties -->
+  <xacro:property name="wrist_flexion_radius" value="0.04" /> <!-- ixx="0.00160765 iyy="0.0016075 izz="0.00044"-->
+  <xacro:property name="wrist_flexion_len" value="0.087" />
+	<!-- Constants -->
+  <xacro:property name="M_PI" value="3.14159"/> 
+<!-- ixx="0.005834583" iyy="0.005834583" izz="0.00044" -->
+<!-- ixx="0.00160765" iyy="0.0016075" izz="0.00044"-->
+
+
+
+    <xacro:macro name="cylinder_inertial" params="mass rad len r:=0 p:=0 yaw:=0 x:=0 y:=0 z:=0 ">
+    <inertial>
+      <mass value="${mass}" />
+      <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+      <inertia 
+        ixx="${(1.0 / 12.0) * mass * (3*pow(rad, 2) + pow(len, 2))}" 
+        ixy="0.0" 
+        ixz="0.0" 
+        iyy="${(1.0 / 12.0) * mass* (3*pow(rad, 2) + pow(len, 2))}" 
+        iyz="0.0" 
+        izz="${(1.0 / 2.0) * mass * pow(rad, 2)}" 
+      />
+    </inertial>
+  </xacro:macro>
+
+    <xacro:macro name="sphere_inertial" params="mass rad r:=0 p:=0 yaw:=0 x:=0 y:=0 z:=0 ">
+    <inertial>
+      <mass value="${mass}" />
+      <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+      <inertia 
+        ixx="${(2.0 / 5.0) * mass* pow(rad, 2)}" 
+        ixy="0.0" 
+        ixz="0.0" 
+        iyy="${(2.0 / 5.0) * mass* pow(rad, 2)}" 
+        iyz="0.0" 
+        izz="${(2.0 / 5.0) * mass* pow(rad, 2)}" 
+      />
+    </inertial>
+  </xacro:macro>
+
+
+
+	<material name="Red">
+      <color rgba="0.8 0.0 0.0 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0 0 0.8 1"/>
+  </material>
+
+  <material name="black">
+    <color rgba="0 0 0 1"/>
+  </material>
+
+  <material name="white">
+    <color rgba="1 1 1 1"/>
+  </material>
+
+  <material name="dogbotred">
+    <color rgba="1 0 0 1"/>
+  </material>
+
+  <material name="dogbotgray">
+    <color rgba="0.7 0.7 0.7 1"/>
+  </material>
+  
+ <xacro:macro name="inertial_matrix" params="mass"> 
+      <inertial>
+      	<mass value="${mass}" />
+        <!-- <inertia ixx="0.0016" ixy="0.0" ixz="0.0" iyy="0.0016" iyz="0.0" izz="0.000073" /> -->
+        <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="0.5" iyz="0.0" izz="1.0" /> <!-- parametri non calcolati da me ma 
+presi dal file xacro del professore Cacace. Non sono ancora ottimali perche' il robot non rimane fermo
+come si vede dalla simulazione -->
+
+      </inertial>
+   </xacro:macro>
+
+  <!-- Approximate mass distribution with a box
+  set ifactor=1 for solid box, =2.0 for a thin shell -->
+  <xacro:macro name="default_inertial" params="mass xSize ySize zSize x:=0 y:=0 z:=0 ifactor:=1.0">
+    <inertial>
+      <mass value="${mass}" />
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0" />
+      <inertia 
+        ixx="${(1.0 / 12.0) * mass * ifactor * (pow(ySize, 2) + pow(zSize, 2))}" 
+        ixy="0.0" 
+        ixz="0.0" 
+        iyy="${(1.0 / 12.0) * mass * ifactor * (pow(xSize, 2) + pow(zSize, 2))}" 
+        iyz="0.0" 
+        izz="${(1.0 / 12.0) * mass * ifactor * (pow(xSize, 2) + pow(ySize, 2))}" 
+      />
+    </inertial>
+  </xacro:macro>
+  
+	
+  <!-- useful for visual-only links; need some inertia on all elements -->
+  <xacro:macro name="tinymass" >
+    <xacro:default_inertial mass="0.001" xSize="0.001" ySize="0.001" zSize="0.001" />
+  </xacro:macro>  
+  
+  <xacro:macro name="custom_inertial" params="mass x:=0 y:=0 z:=0 r:=0 p:=0 yaw:=0 ixx:=0.01 ixy:=0 ixz:=0 iyy:=0.01 iyz:=0 izz:=0.01">
+    <inertial>
+      <mass value="${mass}" />
+      <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+      <inertia 
+        ixx="${ixx}" ixy="${ixy}" ixz="${ixz}" 
+        iyy="${iyy}" iyz="${iyz}" izz="${izz}" 
+      />
+    </inertial>    
+  </xacro:macro>
+  
+  <xacro:macro name="offset_collisionbox" params="l w:=${bodywidth-bodyheight} h:=${bodyheight} x:=0 y:=0 z:=0">
+    <collision>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0" />
+      <geometry>
+        <box size="${w} ${l} ${h}"/>
+      </geometry>
+    </collision>    
+  </xacro:macro>  
+
+  <xacro:macro name="offset_cylinder" params="l rad=${bodyheight/2} x:=0 y:=0 z:=0 r:=0 p:=0 yaw:=0" >
+    <collision>
+      <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+      <geometry>
+        <cylinder radius="${rad}" length="${l}"/>
+      </geometry>
+    </collision>
+  </xacro:macro>
+
+  <xacro:macro name="offset_cylinderpair" params="l rad=${bodyheight/2} x:=${(bodywidth/2)-(bodyheight/2)} y:=0">
+    <xacro:offset_cylinder l="${l}" rad="${rad}" x="${x}" y="${y}" r="${pi/2}" />
+    <xacro:offset_cylinder l="${l}" rad="${rad}" x="${-x}" y="${y}" r="${pi/2}" />
+  </xacro:macro>
+    
+  <!-- start the robot links -->
+  <link name="base_link">
+  </link>
+
+  <link name="body">
+    <visual>
+      <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+      <geometry>
+        <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/body.dae"/>
+      </geometry>
+    </visual>
+    
+    <xacro:if value="${collisionmesh}">
+    <collision>
+      <geometry>
+        <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/body.dae"/>
+      </geometry>
+    </collision>
+    </xacro:if>
+    <xacro:unless value="${collisionmesh}">
+      <!-- central body -->
+      <xacro:offset_collisionbox l="0.433" />
+      <xacro:offset_cylinderpair l="0.433" />
+      <!-- handles -->
+      <xacro:offset_collisionbox l="0.132" w="0.035" y="0.2825"/>
+      <xacro:offset_collisionbox l="0.132" w="0.035" y="-0.2825"/>
+      <!-- ends -->
+      <xacro:offset_collisionbox l="0.080" y="0.3975"/>
+      <xacro:offset_cylinderpair l="0.080" y="0.3975" />
+      <xacro:offset_collisionbox l="0.080" y="-0.3975"/>
+      <xacro:offset_cylinderpair l="0.080" y="-0.3975" />
+    </xacro:unless>
+        
+    <xacro:custom_inertial mass="9.3" ixx="0.41" iyy="0.091" izz="0.482"/>
+        
+  </link>
+  <joint name="shoulder_adduction_joint" type="revolute">
+    <parent link="body"/>
+    <child link="shoulder_adduction_link"/>
+    <origin xyz="0 -0.453 0.005" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28"/>
+   <!--  <dynamics damping="50" friction="1"/> --> 
+  </joint>
+
+
+
+  <link name="shoulder_adduction_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI} 0 0" />
+      <geometry>
+	<cylinder radius="${shoulder_adduction_radius}" length="${shoulder_adduction_len}"/>
+  
+    </geometry>
+			<material name="Gray" />
+
+      <!-- <material name="Black" /> -->
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI} 0 0" />
+      <geometry>
+            <cylinder radius="${shoulder_adduction_radius}" length="${shoulder_adduction_len}"/> <!-- r=0.04 l=0.120 -->
+      </geometry>
+    </collision>
+      <xacro:cylinder_inertial mass="0.5" rad="${shoulder_adduction_radius}" len="${shoulder_adduction_len}" r="${M_PI}" />
+  </link>
+
+  <gazebo reference="shoulder_adduction_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+  <!-- VALORI DA INSERIRE PER MODIFICARE I TENSORI DI INERZIA -->	
+	
+	<xacro:property name="shoulder_flexion_mass" value="0.550" />
+<!-- 
+mass=0.3 ixx=iyy=izz=0.000096 
+mass=0.35 ixx=iyy=izz=0.000112 
+mass=0.4 ixx=iyy=izz=0.000128 
+mass=0.45 ixx=iyy=izz=0.000144  
+mass=0.5 ixx=iyy=izz=0.000160
+mass=0.55 ixx=iyy=izz=0.000176  
+mass=0.6 ixx=iyy=izz=0.000192 
+mass=0.65 ixx=iyy=izz=0.000208 			
+-->
+	<xacro:property name="ixx_sflexion" value="0.000176" /> <!-- valori che dipendono dalla massa scelta per l'esperimento -->
+	<xacro:property name="iyy_sflexion" value="0.000176" />
+	<xacro:property name="izz_sflexion" value="0.000176" />
+	
+	<xacro:property name="humerus_rotation_mass" value="0.550" />
+<!-- 
+mass=0.3 ixx=iyy=0.003183 izz=0.00024 
+mass=0.35 ixx=iyy=0.0037135 izz=0.00028 
+mass=0.40 ixx=iyy=0.004244 izz=0.00032 
+mass=0.45 ixx=iyy=0.0047745 izz=0.00036 
+mass=0.50 ixx=iyy=0.005305 izz= 0.00040
+mass=0.60 ixx=iyy=0.006366 izz=0.00048 
+mass=0.65 ixx=iyy=0.0068965 izz= 0.00052			
+-->
+	<xacro:property name="ixx_hrotation" value="0.005834583" />
+	<xacro:property name="iyy_hrotation" value="0.005834583" />
+	<xacro:property name="izz_hrotation" value="0.00044" />
+	
+	<xacro:property name="elbow_flexion_mass" value="0.550" />
+<!-- 
+mass=0.3 ixx=iyy=izz=0.000096 
+mass=0.35 ixx=iyy=izz=0.000112 
+mass=0.4 ixx=iyy=izz=0.000128 
+mass=0.45 ixx=iyy=izz=0.000144  
+mass=0.5 ixx=iyy=izz=0.000160
+mass=0.55 ixx=iyy=izz=0.000176  
+mass=0.6 ixx=iyy=izz=0.000192 
+mass=0.65 ixx=iyy=izz=0.000208 			
+-->
+	<xacro:property name="ixx_eflexion" value="0.000176" />
+	<xacro:property name="iyy_eflexion" value="0.000176" />
+	<xacro:property name="izz_eflexion" value="0.000176" />
+
+	<xacro:property name="wrist_rotation_mass" value="0.550" />
+<!-- 
+mass=0.3 ixx=iyy=0.003183 izz=0.00024 
+mass=0.35 ixx=iyy=0.0037135 izz=0.00028 
+mass=0.40 ixx=iyy=0.004244 izz=0.00032 
+mass=0.45 ixx=iyy=0.0047745 izz=0.00036 
+mass=0.50 ixx=iyy=0.005305 izz= 0.00040
+mass=0.60 ixx=iyy=0.006366 izz=0.00044 
+mass=0.65 ixx=iyy=0.0068965 izz= 0.00048			
+-->
+	<xacro:property name="ixx_wrotation" value="0.005834583" />
+	<xacro:property name="iyy_wrotation" value="0.005834583" />
+	<xacro:property name="izz_wrotation" value="0.00044" />
+	
+	<xacro:property name="wrist_flexion_mass" value="0.550" />
+<!-- 
+mass=0.3 ixx=iyy=0.0008769 izz=0.00024 
+mass=0.35 ixx=iyy=0.00102305 izz=0.00028 
+mass=0.40 ixx=iyy=0.0011692 izz=0.00032 
+mass=0.45 ixx=iyy=0.00131535 izz=0.00036 
+mass=0.50 ixx=iyy=0.0014615 izz= 0.00040
+mass=0.55 ixx=iyy=0.00160765  izz=0.00044
+mass=0.60 ixx=iyy=0.0017538 izz=0.00048
+mass=0.65 ixx=iyy=0.0019 izz= 0.000452			
+-->
+	<xacro:property name="ixx_wflexion" value="0.00160765" />
+	<xacro:property name="iyy_wflexion" value="0.00160765" />
+	<xacro:property name="izz_wflexion" value="0.00044" />
+
+
+	<joint name="shoulder_flexion_joint" type="revolute">
+    <parent link="shoulder_adduction_link"/>
+    <child link="shoulder_flexion_link"/>
+    <origin xyz="0 0 -0.097" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28" />
+    <!-- <dynamics damping="50" friction="1"/> -->
+  </joint>
+
+   <link name="shoulder_flexion_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+	<sphere radius="${shoulder_flexion_radius}" /> <!-- length="${shoulder_flexion_len}"/> -->
+
+      </geometry>
+      <material name="dogbotred" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+            <sphere radius="${shoulder_flexion_radius}" /> <!-- length="${shoulder_flexion_len}"/> -->
+      </geometry>
+    </collision>
+	 <!-- <xacro:custom_inertial mass="0.550" ixx="0.00160765" iyy="0.0016075" izz="0.00044"/>-->
+   <!-- <xacro:custom_inertial mass="${shoulder_flexion_mass}" ixx="${ixx_sflexion}" iyy="${iyy_sflexion}" izz="${izz_sflexion}"/> --> 
+	<xacro:sphere_inertial mass="0.5" rad="${shoulder_flexion_radius}" r="${M_PI/2}" />
+  </link>
+
+  <gazebo reference="shoulder_flexion_link">
+    <!-- <material>Gazebo/Red</material> -->
+	<visual>  
+    <material>  
+      <ambient>0.53 0.11 0.098 1 </ambient>
+      <diffuse>0.53 0.11 0.098 1</diffuse>  
+      <specular>0.1 0.1 0.1 1</specular>
+      <emissive>0 0 0 0</emissive>  
+    </material>  
+  </visual>   
+  </gazebo>
+
+	<joint name="humerus_rotation_joint" type="revolute">
+    <parent link="shoulder_flexion_link"/>
+    <child link="humerus_rotation_link"/>
+    <origin xyz="0 -0.125 0" rpy="0 0 0" />
+    <axis xyz="0 -1 0" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28" />
+    <!-- <dynamics damping="50" friction="1"/> -->
+   </joint>
+
+	<link name="humerus_rotation_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+	<cylinder radius="${humerus_rotation_radius}" length="${humerus_rotation_len}"/>
+
+      </geometry>
+      <material name="Gray" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+            <cylinder radius="${humerus_rotation_radius}" length="${humerus_rotation_len}"/> <!--r=0.04 l=0.175 -->
+      </geometry>
+    </collision>
+	 <!-- <xacro:custom_inertial mass="${humerus_rotation_mass}" ixx="${ixx_hrotation}" iyy="${iyy_hrotation}" izz="${izz_hrotation}"/> -->
+	<!-- <xacro:custom_inertial mass="0.550" ixx="0.005834583" iyy="0.005834583" izz="0.00044"/> -->
+    <xacro:cylinder_inertial mass="0.5" rad="${humerus_rotation_radius}" len="${humerus_rotation_len}" r="${M_PI/2}" />
+  </link>
+
+  <gazebo reference="humerus_rotation_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+	<joint name="elbow_flexion_joint" type="revolute">
+    <parent link="humerus_rotation_link"/>
+    <child link="elbow_flexion_link"/>
+    <origin xyz="0 -0.125 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28" />
+    <!-- <dynamics damping="50" friction="1"/> -->
+  </joint>
+   
+   <link name="elbow_flexion_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+	<sphere radius="${elbow_flexion_radius}" />
+
+      </geometry>
+      <material name="Red" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" /> <!-- rotazione rispetto all'asse y di 90 gradi-->
+      <geometry>
+            <sphere radius="${elbow_flexion_radius}" /> <!-- length="${elbow_flexion_len}"/> -->
+      </geometry>
+    </collision>
+		<!-- <xacro:custom_inertial mass="0.550" ixx="0.00160765" iyy="0.00160765" izz="0.00044" /> -->
+	  <!-- <xacro:custom_inertial mass="0.5" ixx="0.0014615" iyy="0.0014615" izz="0.0004" /> -->
+		 <!-- <xacro:custom_inertial mass="${elbow_flexion_mass}" ixx="${ixx_eflexion}" iyy="${iyy_eflexion}" izz="${izz_eflexion}" /> --> 
+	<xacro:sphere_inertial mass="0.5" rad="${elbow_flexion_radius}" r="${M_PI/2}" />
+   </link>
+
+  <gazebo reference="elbow_flexion_link">
+    <!-- <material>Gazebo/Red</material> -->
+	<visual>  
+ 
+    <material>  
+      <ambient>0.53 0.11 0.098 1 </ambient>
+      <diffuse>0.53 0.11 0.098 1</diffuse>  
+      <specular>0.1 0.1 0.1 1</specular>
+      <emissive>0 0 0 0</emissive>  
+    </material>  
+  </visual>   
+  </gazebo>
+
+
+	<link name="wrist_rotation_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+	<cylinder radius="${wrist_rotation_radius}" length="${wrist_rotation_len}"/>
+
+      </geometry>
+      <material name="Gray" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+            <cylinder radius="${wrist_rotation_radius}" length="${wrist_rotation_len}"/> <!--r=0.04 l=0.175 -->
+      </geometry>
+    </collision>
+	<!-- <xacro:custom_inertial mass="0.550" ixx="0.005834583" iyy="0.005834583" izz="0.00044"/> -->
+		<!-- <xacro:custom_inertial mass="${wrist_rotation_mass}" ixx="${ixx_wrotation}" iyy="${iyy_wrotation}" izz="${izz_wrotation}"/> --> 
+	 <xacro:cylinder_inertial mass="0.5" rad="${wrist_rotation_radius}" len="${wrist_rotation_len}" />
+  </link>
+
+  <gazebo reference="wrist_rotation_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+	<joint name="wrist_rotation_joint" type="revolute">
+    <parent link="elbow_flexion_link"/>
+    <child link="wrist_rotation_link"/>
+    <origin xyz="0 0 0.125" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28"/> -->
+    <!-- <dynamics damping="50" friction="1"/> -->
+   </joint> 
+
+
+	<link name="wrist_flexion_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+      <geometry>
+	<cylinder radius="${wrist_flexion_radius}" length="${wrist_flexion_len}"/>
+
+      </geometry>
+      <material name="Red" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" /> <!-- rotazione rispetto all'asse y di 90 gradi-->
+      <geometry>
+            <cylinder radius="${wrist_flexion_radius}" length="${wrist_flexion_len}"/> <!--r=0.04 l=0.087 -->
+      </geometry>
+    </collision>
+	<!-- <xacro:custom_inertial mass="0.550" ixx="0.00160765" iyy="0.0016075" izz="0.00044"/> -->
+ 	<!-- <xacro:custom_inertial mass="${wrist_flexion_mass}" ixx="${ixx_wflexion}" iyy="${iyy_wflexion}" izz="${izz_wflexion}"/> -->
+	 <xacro:cylinder_inertial mass="0.5" rad="${wrist_flexion_radius}" len="${wrist_flexion_len}" r="${M_PI/2}" />
+   </link>
+	<gazebo reference="wrist_flexion_link">
+    <!-- <material>Gazebo/Red</material> -->
+	<visual>  
+    <material>  
+      <ambient>0.53 0.11 0.098 1 </ambient>
+      <diffuse>0.53 0.11 0.098 1</diffuse>  
+      <specular>0.1 0.1 0.1 1</specular>
+      <emissive>0 0 0 0</emissive>  
+    </material>  
+  </visual>   
+  </gazebo>
+
+	 <joint name="wrist_flexion_joint" type="revolute">
+    <parent link="wrist_rotation_link"/>
+    <child link="wrist_flexion_link"/>
+    <origin xyz="0 0 0.125" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit effort="300" velocity="6" lower="-6.28" upper="6.28" />
+<!-- <dynamics damping="50" friction="1"/> -->
+   </joint> 
+
+
+<transmission name="shoulder_adduction_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="shoulder_adduction_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="shoulder_adduction_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+
+	<transmission name="shoulder_flexion_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="shoulder_flexion_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="shoulder_flexion_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+ <transmission name="humerus_rotation_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="humerus_rotation_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="humerus_rotation_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="elbow_flexion_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="elbow_flexion_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="elbow_flexion_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+<transmission name="wrist_rotation_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="wrist_rotation_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="wrist_rotation_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+<transmission name="wrist_flexion_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="wrist_flexion_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="wrist_flexion_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+	 <!--link name="first_gripper_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+	      <box size="0.1 0.022 0.022"/>
+
+      </geometry>
+      <material name="Gray" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" /> 
+      <geometry>
+            <box size="0.1 0.022 0.022"/> 
+      </geometry>
+    </collision>
+		<xacro:inertial_matrix mass="0.05"/>
+   </link>
+
+	<gazebo reference="first_gripper_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+	<joint name="first_gripper_joint" type="fixed">
+    <parent link="wrist_flexion_link"/>
+    <child link="first_gripper_link"/>
+    <origin xyz="-0.051 0 0.047" rpy="0 ${M_PI/3} 0" />
+   </joint> 
+   
+	 <link name="second_gripper_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+	      <box size="0.1 0.022 0.022"/>
+
+      </geometry>
+      <material name="Gray" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" /> 
+      <geometry>
+            <box size="0.1 0.022 0.022"/> 
+      </geometry>
+    </collision>
+		<xacro:inertial_matrix mass="0.05"/>
+   </link>
+
+	<gazebo reference="second_gripper_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+	<joint name="second_gripper_joint" type="fixed">
+    <parent link="wrist_flexion_link"/>
+    <child link="second_gripper_link"/>
+    <origin xyz="0.051 0 0.047" rpy="0 -${M_PI/3} 0" />
+   </joint--> 
+ 
+
+<!--
+	 <link name="tray_link" >
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+	      <cylinder radius="0.2" length="0.005"/>
+
+      </geometry>
+      <material name="White" />
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" /> 
+      <geometry>
+            <cylinder radius="0.1" length="0.005"/> 
+      </geometry>
+    </collision>
+		<xacro:inertial_matrix mass="0.150"/>
+   </link>
+
+	<gazebo reference="tray_link">
+    <material>Gazebo/White</material>
+  </gazebo>
+
+	<joint name="tray_joint" type="fixed">
+    <parent link="wrist_flexion_link"/>
+    <child link="tray_link"/>
+    <origin xyz="-0.045 0 0.022" rpy="0 ${M_PI/1.3} 0" />
+   </joint> 
+ -->
+  <joint name="base_joint" type="fixed">
+    <axis xyz="0 0 0" rpy="0 0 0" />
+    <parent link="base_link"/>
+    <child link="body"/>
+  </joint>
+  <link name="bodytext">
+    <visual>
+      <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+      <geometry>
+        <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/bodyTEXT.dae"/>
+      </geometry>
+    </visual>        
+    <xacro:tinymass />
+  </link>  
+  
+  <joint name="bodytext_joint" type="fixed">
+    <parent link="body"/>
+    <child link="bodytext"/>
+  </joint>
+  
+  <gazebo reference="body">
+    <mu1 value="200.0"/>
+    <mu2 value="100.0"/>
+    <kp value="${kp}" />
+    <kd value="${kd}" />
+
+  
+   <sensor name="base_link_contactsensor_sensor" type="contact">
+        <always_on>true</always_on>
+        <contact>
+          <collision>base_link_fixed_joint_lump__body_collision_8</collision>
+        </contact>
+        <plugin name="body_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>base_link_contactsensor_state</bumperTopicName>
+          <!--<frameName>${prefix}_${suffix}_foot</frameName>-->
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+
+ <sensor name="base_link_contactsensor_sensor2" type="contact">
+        <always_on>true</always_on>
+        <contact>
+          <collision>base_link_fixed_joint_lump__body_collision_9</collision>
+        </contact>
+        <plugin name="body_plugin2" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>base_link_contactsensor_state2</bumperTopicName>
+          <!--<frameName>${prefix}_${suffix}_foot</frameName>-->
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+
+
+ <sensor name="base_link_contactsensor_sensor3" type="contact">
+        <always_on>true</always_on>
+        <contact>
+          <collision>base_link_fixed_joint_lump__body_collision_10</collision>
+        </contact>
+        <plugin name="body_plugin3" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>base_link_contactsensor_state3</bumperTopicName>
+          <!--<frameName>${prefix}_${suffix}_foot</frameName>-->
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+  </gazebo>
+  
+     
+
+  <!-- reflectx indicates left/right, reflecty indicates front/back (front-right is 1,1, i.e.
+  y co-ordinate increases towards the front of the robot, and x to the right, with the origin in the 
+  body centre) -->
+  <xacro:macro name="leg" params="prefix suffix reflectx reflecty">
+    
+    <link name="${prefix}_${suffix}_hip">
+      <visual>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} ${(reflectx-1) * 0.5 * pi} 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/hip.dae"/>
+        </geometry>
+      </visual>
+      
+      <xacro:if value="${collisionmesh}">
+      <collision>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} ${(reflectx-1) * 0.5 * pi} 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/hip.dae"/>
+        </geometry>
+      </collision>
+      </xacro:if>
+      <xacro:unless value="${collisionmesh}">      
+        <xacro:offset_cylinder l="0.08" p="${pi/2}" x="${0.02 * reflectx}"/>
+      </xacro:unless>
+      <xacro:custom_inertial mass="0.836" x="${0.0074 * reflectx}" ixx="0.00213" iyy="0.00147" izz="0.00172"/>
+      
+    </link>    
+
+    <!-- roll joint connects the hip to the body -->
+    <joint name="${prefix}_${suffix}_roll_joint" type="revolute">
+      <axis xyz="0 ${reflecty} 0" rpy="0 0 0" />
+      <parent link="body"/>
+      <child link="${prefix}_${suffix}_hip"/>
+      <origin xyz="${hipoffsetside*reflectx} ${hipoffset * reflecty} 0" rpy="0 0 0"/>
+      <limit 
+         lower ="${-100 * d2rad}" 
+         upper ="${100 * d2rad}" 
+         effort="60" velocity="6.0" />
+    </joint>
+  
+    <link name="${prefix}_${suffix}_upperleg">
+      <visual>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 ${ (reflectx -1) * 0.5 * pi}" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/LegUpper_withCover.dae"/>
+        </geometry>
+      </visual>
+
+      <xacro:if value="${collisionmesh}">
+      <collision>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 ${ (reflectx -1) * 0.5 * pi}" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/LegUpper_withCover.dae"/>
+        </geometry>
+      </collision>
+      </xacro:if>
+      <xacro:unless value="${collisionmesh}">    
+        <!-- upper motor housings -->
+        <xacro:offset_cylinder l="0.13" p="${pi/2}" x="${0.03 * reflectx}"/>
+        <!-- main leg cylinder and belt -->
+        <xacro:offset_cylinder l="0.27" rad="0.033" z="-0.135"/>
+        <xacro:offset_collisionbox l="0.084" w="0.025" h="0.27" z="-0.135"/>
+        <!-- circuit board housing -->
+        <xacro:offset_collisionbox l="0.074" w="0.026" h="0.138" x="${0.046 * reflectx}" z="-0.126"/>
+        <!-- knee-joint components -->
+        <xacro:offset_cylinder l="0.018" rad="0.017" z="${-upperleglen}" p="${pi/2}" x="${0.03 * reflectx}" />
+        <xacro:offset_cylinder l="0.013" rad="0.017" z="${-upperleglen}" p="${pi/2}" x="${-0.036 * reflectx}" />
+      </xacro:unless>      
+      
+      <xacro:custom_inertial mass="1.851" x="${0.0418 * reflectx}" z="-0.0517" ixx="0.0238" iyy="0.0252" izz="0.0044"/>
+    </link>    
+    
+    <!-- pitch joint connects hip to upper leg -->
+    <joint name="${prefix}_${suffix}_pitch_joint" type="revolute">
+      <axis xyz="${reflectx} 0 0" rpy="0 0 0" />
+      <parent link="${prefix}_${suffix}_hip"/>
+      <child link="${prefix}_${suffix}_upperleg"/>
+      <origin xyz="${(legoffsetside - hipoffsetside)*reflectx} 0 0" rpy="0 0 0"/>
+      <limit 
+        lower ="${-0.5 * pi *(reflectx+1) + 0.25 * pi * (reflectx-1)}" 
+        upper="${0.25 * pi *(reflectx+1) - 0.5 * pi * (reflectx-1)}" 
+        effort="60" 
+        velocity="6.0" 
+      />
+    </joint>
+
+    <link name="${prefix}_${suffix}_lowerleg">
+      <visual>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/LegLower_nofoot.dae"/>
+        </geometry>
+      </visual>      
+
+      <xacro:if value="${collisionmesh}">
+      <collision>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/LegLower_nofoot.dae"/>
+        </geometry>
+      </collision>   
+      </xacro:if>
+      <xacro:unless value="${collisionmesh}">
+        <!-- knee assembly -->
+        <xacro:offset_cylinder l="0.033" rad="0.042" p="${pi/2}" />
+        <xacro:offset_collisionbox l="0.017" w="0.02" h="0.065" x="0.024" y="-0.0375" z="-0.0055" />
+        <xacro:offset_collisionbox l="0.017" w="0.02" h="0.065" x="-0.024" y="-0.0375" z="-0.0055" />
+        <!-- carbon fibre struts -->
+        <xacro:offset_cylinder l="0.290" rad="0.006" p="0.04996" x="0.01575" y="-0.0375" z="-0.145" />
+        <xacro:offset_cylinder l="0.290" rad="0.006" p="-0.04996" x="-0.01575" y="-0.0375" z="-0.145" />
+      </xacro:unless>
+
+      <xacro:custom_inertial mass="0.302" y="-0.029" z="-0.1439" ixx="0.00527" iyy="0.00509" izz="0.0008"/>
+    </link>    
+
+    <gazebo reference="${prefix}_${suffix}_lowerleg">
+      <mu1 value="2000.0"/>
+      <mu2 value="1000.0"/>
+      <kp value="${kp}" />
+      <kd value="${kd}" />
+      <selfCollide value="true" />
+    </gazebo>
+    
+    <joint name="${prefix}_${suffix}_knee_joint" type="revolute">
+      <axis xyz="${-1 * reflectx} 0 0" rpy="${-2*pi} 0 0" />
+      <parent link="${prefix}_${suffix}_upperleg"/>
+      <child link="${prefix}_${suffix}_lowerleg"/>
+      <origin xyz="0 0 ${-upperleglen}" rpy="0 0 0"/>
+      <limit 
+         lower ="${-0.01*(reflectx+1) + 150 * d2rad * (reflectx-1)/2}" 
+         upper ="${-0.01*(reflectx-1) + 150 * d2rad * (reflectx+1)/2}" 
+         effort="60" velocity="6.0" 
+       />
+    </joint>
+
+    <link name="${prefix}_${suffix}_foot">
+      <visual>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/foot.dae"/>
+        </geometry>
+      </visual> 
+      
+      <xacro:if value="${collisionmesh}">
+      <collision>
+        <origin xyz="0 0 0" rpy="${-0.5 * pi} 0 0" />
+        <geometry>
+          <mesh scale="1.0 1.0 1.0" filename="package://dogbot_description/meshes/foot.dae"/>
+        </geometry>
+      </collision>
+      </xacro:if>
+      <xacro:unless value="${collisionmesh}">   
+        <collision>
+          <origin xyz="0 -0.035 ${-lowerleglen}" rpy="0 0 0" />
+          <geometry>
+            <sphere radius="0.028" />
+          </geometry>
+        </collision>
+      </xacro:unless>
+      <!-- foot mass is included in lower leg link -->
+      <xacro:tinymass />
+    </link> 
+
+    <joint name="${prefix}_${suffix}_foot_joint" type="fixed">
+      <axis xyz="0 1 0" rpy="0 0 0" />
+      <parent link="${prefix}_${suffix}_lowerleg"/>
+      <child link="${prefix}_${suffix}_foot"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint> 
+
+    <gazebo reference="${prefix}_${suffix}_foot">
+      <mu1 value="2000.0"/>
+      <mu2 value="1000.0"/>
+      <kp value="${kp}" />
+      <kd value="${kd}" />
+   
+
+
+ <!-- Contact Sensor -->
+      <sensor name="${prefix}_${suffix}_contactsensor_sensor" type="contact">
+        <always_on>true</always_on>
+        <contact>
+          <collision>${prefix}_${suffix}_lowerleg_fixed_joint_lump__${prefix}_${suffix}_foot_collision_5</collision>
+        </contact>
+        <plugin name="${prefix}_${suffix}_foot_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}_${suffix}_contactsensor_state</bumperTopicName>
+          <!--<frameName>${prefix}_${suffix}_foot</frameName>-->
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+
+ </gazebo>
+
+
+    <transmission name="${prefix}_${suffix}_roll_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}_${suffix}_roll_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}_${suffix}_roll_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}_${suffix}_pitch_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}_${suffix}_pitch_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}_${suffix}_pitch_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}_${suffix}_knee_transmition" >
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}_${suffix}_knee_joint">
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}_${suffix}_knee_motor" >
+        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+    
+  </xacro:macro>
+
+  <xacro:leg prefix="back" suffix="left" reflectx="-1"  reflecty="-1"/>
+  <xacro:leg prefix="back" suffix="right"  reflectx="1" reflecty="-1" />
+  <xacro:leg prefix="front"  suffix="left" reflectx="-1"  reflecty="1"/>
+  <xacro:leg prefix="front"  suffix="right"  reflectx="1" reflecty="1" />
+
+  <gazebo>
+    <plugin name="imu_plugin" filename="libhector_gazebo_ros_imu.so">
+      <alwaysOn>true</alwaysOn>
+      <bodyName>body</bodyName>
+      <robotNamespace>dogbot</robotNamespace>
+      <topicName>imu</topicName>
+      <serviceName>imu_service</serviceName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <updateRate>20.0</updateRate>
+    </plugin>
+    
+    <plugin name="gps_plugin" filename="libhector_gazebo_ros_gps.so">
+      <alwaysOn>true</alwaysOn>
+      <bodyName>body</bodyName>
+      <robotNamespace>dogbot</robotNamespace>
+      <topicName>gps</topicName>
+      <serviceName>imu_service</serviceName>
+      <updateRate>100</updateRate>
+      <referenceLatitude>51.5</referenceLatitude>
+      <referenceLongitude>0.1278</referenceLongitude>
+    </plugin>
+  </gazebo>
+  
+  <!-- Gazebo plugin for ROS Control -->
+   <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/dogbot</robotNamespace>  
+    </plugin>
+  </gazebo>
+
+
+</robot>
